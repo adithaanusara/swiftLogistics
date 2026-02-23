@@ -1,0 +1,48 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports: ["5672:5672", "15672:15672"]
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: swifttrack
+    ports: ["5432:5432"]
+
+  mock-ros:
+    build: ./services/mock-ros-rest
+    ports: ["8001:8000"]
+
+  mock-wms:
+    build: ./services/mock-wms-tcp
+    ports: ["9000:9000"]
+
+  mock-cms:
+    build: ./services/mock-cms-soap
+    ports: ["8002:8000"]
+
+  orchestrator:
+    build: ./services/orchestrator
+    environment:
+      RABBIT_URL: amqp://guest:guest@rabbitmq:5672/
+      POSTGRES_DSN: postgresql://postgres:postgres@postgres:5432/swifttrack
+      CMS_URL: http://mock-cms:8000/soap
+      ROS_URL: http://mock-ros:8000
+      WMS_HOST: mock-wms
+      WMS_PORT: 9000
+    depends_on: [rabbitmq, postgres, mock-ros, mock-wms, mock-cms]
+
+  api-gateway:
+    build: ./services/api-gateway
+    ports: ["8000:8000"]
+    environment:
+      RABBIT_URL: amqp://guest:guest@rabbitmq:5672/
+      POSTGRES_DSN: postgresql://postgres:postgres@postgres:5432/swifttrack
+    depends_on: [rabbitmq, postgres]
+
+  ui:
+    image: nginx:alpine
+    volumes:
+      - ./ui-client:/usr/share/nginx/html:ro
+    ports: ["8080:80"]
