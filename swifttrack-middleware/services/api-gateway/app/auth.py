@@ -1,16 +1,19 @@
 import os, time
 from jose import jwt, JWTError
-from passlib.hash import bcrypt
+from passlib.context import CryptContext
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret")
 JWT_ALG = "HS256"
 JWT_EXPIRE_SEC = 60 * 60 * 6  # 6 hours
 
+# ✅ Use PBKDF2 (no bcrypt dependency problems in Docker)
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
 def hash_pw(pw: str) -> str:
-    return bcrypt.hash(pw)
+    return pwd_context.hash(pw)
 
 def verify_pw(pw: str, hashed: str) -> bool:
-    return bcrypt.verify(pw, hashed)
+    return pwd_context.verify(pw, hashed)
 
 def create_token(user_id: int, role: str, username: str) -> str:
     now = int(time.time())
