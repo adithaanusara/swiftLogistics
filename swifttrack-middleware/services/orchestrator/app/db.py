@@ -3,17 +3,25 @@ import psycopg
 
 DSN = os.environ["POSTGRES_DSN"]
 
-def init_db():
-    # gateway already creates table; keep here for safety
+def pick_driver_id():
+    # pick active driver with least assigned (not delivered) orders
     with psycopg.connect(DSN) as con:
-        con.execute("""
-        CREATE TABLE IF NOT EXISTS orders(
-          order_id TEXT PRIMARY KEY,
-          status TEXT NOT NULL,
-          payload JSONB NOT NULL
-        );
-        """)
+        row = con.execute("""
+        SELECT d.id
+        FROM drivers d
+        WHERE d.is_active = TRUE
+        ORDER BY (
+          SELECT COUNT(*) FROM orders o
+          WHERE o.assigned_driver_id = d.id AND o.status != 'DELIVERED'
+        ) ASC
+        LIMIT 1
+        """).fetchone()
+        return row[0] if row else None
 
-def update_order(order_id: str, status: str):
+def assign_driver(order_id: str, driver_id: int):
     with psycopg.connect(DSN) as con:
-        con.execute("UPDATE orders SET status=%s WHERE order_id=%s", (status, order_id))
+        con.execute("UPDATE orders SET assigned_driver_id=%s, status='DRIVER_ASSIGNED' WHERE id=%s", (driver_id, order_id))
+
+def update_status(order_id: str, status: str):
+    with psycopg.connect(DSN) as con:
+        con.execute("UPDATE orders SET status=%s WHERE id=%s", (status, order_id))

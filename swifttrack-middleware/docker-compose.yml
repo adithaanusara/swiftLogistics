@@ -39,6 +39,7 @@ services:
     environment:
       RABBIT_URL: amqp://guest:guest@rabbitmq:5672/
       POSTGRES_DSN: postgresql://postgres:postgres@postgres:5432/swifttrack
+      JWT_SECRET: dev-secret
     depends_on: [rabbitmq, postgres]
 
   ui:

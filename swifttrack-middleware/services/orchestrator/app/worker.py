@@ -1,7 +1,6 @@
 import json, os, time
 import pika
-
-from .db import init_db, update_order
+from .db import pick_driver_id, assign_driver, update_status
 from .adapters.cms_client import cms_create_order
 from .adapters.wms_client import wms_register_package
 from .adapters.ros_client import ros_plan_route
@@ -9,38 +8,40 @@ from .adapters.ros_client import ros_plan_route
 RABBIT_URL = os.environ["RABBIT_URL"]
 
 def main():
-    init_db()
-
-    params = pika.URLParameters(RABBIT_URL)
-    conn = pika.BlockingConnection(params)
+    conn = pika.BlockingConnection(pika.URLParameters(RABBIT_URL))
     ch = conn.channel()
     ch.queue_declare(queue="order.created", durable=True)
 
     def handle(ch_, method, props, body):
         msg = json.loads(body.decode())
         order_id = msg["order_id"]
-        payload = msg["payload"]
 
         try:
-            # Saga steps
-            update_order(order_id, "PROCESSING")
+            update_status(order_id, "PROCESSING")
 
-            cms_create_order(order_id, payload)
-            update_order(order_id, "CMS_OK")
+            driver_id = pick_driver_id()
+            if driver_id is None:
+                update_status(order_id, "FAILED_NO_DRIVER")
+                ch_.basic_ack(delivery_tag=method.delivery_tag)
+                return
 
-            wms_register_package(order_id, payload)
-            update_order(order_id, "WMS_OK")
+            assign_driver(order_id, driver_id)
 
-            ros_plan_route(order_id, payload)
-            update_order(order_id, "ROUTE_PLANNED")
+            # integration demo steps
+            cms_create_order(order_id, {})
+            update_status(order_id, "CMS_OK")
 
-            update_order(order_id, "READY_FOR_DRIVER")
+            wms_register_package(order_id, {})
+            update_status(order_id, "WMS_OK")
 
+            ros_plan_route(order_id, {})
+            update_status(order_id, "ROUTE_PLANNED")
+
+            update_status(order_id, "READY_FOR_PICKUP")
             ch_.basic_ack(delivery_tag=method.delivery_tag)
 
         except Exception:
-            update_order(order_id, "FAILED")
-            # prototype retry (simple)
+            update_status(order_id, "FAILED")
             time.sleep(1)
             ch_.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
