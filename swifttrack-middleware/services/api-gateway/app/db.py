@@ -15,8 +15,10 @@ def init_db():
 
 def create_order(order_id: str, status: str, payload: dict):
     with psycopg.connect(DSN) as con:
-        con.execute("INSERT INTO orders(order_id,status,payload) VALUES (%s,%s,%s)",
-                    (order_id, status, json.dumps(payload)))
+        con.execute(
+            "INSERT INTO orders(order_id,status,payload) VALUES (%s,%s,%s)",
+            (order_id, status, json.dumps(payload)),
+        )
 
 def update_order(order_id: str, status: str):
     with psycopg.connect(DSN) as con:
@@ -24,7 +26,10 @@ def update_order(order_id: str, status: str):
 
 def get_order(order_id: str):
     with psycopg.connect(DSN) as con:
-        row = con.execute("SELECT order_id,status,payload FROM orders WHERE order_id=%s", (order_id,)).fetchone()
+        row = con.execute(
+            "SELECT order_id,status,payload FROM orders WHERE order_id=%s",
+            (order_id,),
+        ).fetchone()
         if not row:
             return None
         return {"order_id": row[0], "status": row[1], "payload": row[2]}
