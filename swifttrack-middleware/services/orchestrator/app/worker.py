@@ -1,14 +1,16 @@
 import json, os, time
 import pika
+
 from .db import init_db, update_order
 from .adapters.cms_client import cms_create_order
-from .adapters.ros_client import ros_plan_route
 from .adapters.wms_client import wms_register_package
+from .adapters.ros_client import ros_plan_route
 
 RABBIT_URL = os.environ["RABBIT_URL"]
 
 def main():
     init_db()
+
     params = pika.URLParameters(RABBIT_URL)
     conn = pika.BlockingConnection(params)
     ch = conn.channel()
@@ -19,25 +21,26 @@ def main():
         order_id = msg["order_id"]
         payload = msg["payload"]
 
-        # Saga (simple): step-by-step + compensations (prototype-level)
         try:
+            # Saga steps
             update_order(order_id, "PROCESSING")
 
-            cms_create_order(order_id, payload)       # SOAP
+            cms_create_order(order_id, payload)
             update_order(order_id, "CMS_OK")
 
-            wms_register_package(order_id, payload)   # TCP
+            wms_register_package(order_id, payload)
             update_order(order_id, "WMS_OK")
 
-            ros_plan_route(order_id, payload)         # REST
+            ros_plan_route(order_id, payload)
             update_order(order_id, "ROUTE_PLANNED")
 
             update_order(order_id, "READY_FOR_DRIVER")
+
             ch_.basic_ack(delivery_tag=method.delivery_tag)
 
-        except Exception as e:
-            # Recovery approach (describe in report): retry + DLQ + compensation
-            update_order(order_id, f"FAILED")
+        except Exception:
+            update_order(order_id, "FAILED")
+            # prototype retry (simple)
             time.sleep(1)
             ch_.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
