@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import StatCard from "../components/StatCard";
+import DataTable from "../components/DataTable";
 import { adminOrders } from "../api";
 
 export default function AdminDashboard({ session }) {
@@ -12,36 +14,39 @@ export default function AdminDashboard({ session }) {
   useEffect(() => {
     load();
     const t = setInterval(load, 2000);
-    return ()=>clearInterval(t);
+    return () => clearInterval(t);
   }, []);
+
+  const active = orders.filter(o => !["DELIVERED","FAILED"].includes(o.status)).length;
+  const pending = orders.filter(o => o.status === "RECEIVED").length;
+  const delivered = orders.filter(o => o.status === "DELIVERED").length;
 
   return (
     <div className="container">
-      <h2>Admin Panel</h2>
-      <div className="card">
-        <div className="row" style={{justifyContent:"space-between", alignItems:"center"}}>
-          <h3>Orders</h3>
-          <span className="badge">Auto-refresh 2s</span>
+      <div className="grid">
+        <StatCard title="TOTAL ORDERS" value={orders.length} pillText="All Time" pillTone="good" />
+        <StatCard title="ACTIVE SHIPMENTS" value={active} pillText="Live" pillTone="warn" />
+        <StatCard title="PENDING ASSIGNMENTS" value={pending} pillText="Queue" pillTone="warn" />
+        <StatCard title="DELIVERED" value={delivered} pillText="Completed" pillTone="good" />
+
+        <div className="card" style={{gridColumn:"span 12"}}>
+          <div className="row" style={{justifyContent:"space-between", alignItems:"center"}}>
+            <div className="h2">Order Management</div>
+            <span className="badge">Auto-refresh: 2s</span>
+          </div>
+
+          <DataTable
+            columns={["Order", "Client", "Product", "Address", "Status", "Driver"]}
+            rows={orders.map(o => ({
+              order: o.id?.slice(0,8) + "…",
+              client: o.client,
+              product: o.product_id,
+              address: o.address,
+              status: o.status,
+              driver: o.assigned_driver_id ?? "-"
+            }))}
+          />
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Order</th><th>Client</th><th>Product</th><th>Address</th><th>Status</th><th>DriverId</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map(o=>(
-              <tr key={o.id}>
-                <td>{o.id.slice(0,8)}…</td>
-                <td>{o.client}</td>
-                <td>{o.product_id}</td>
-                <td>{o.address}</td>
-                <td><span className="badge">{o.status}</span></td>
-                <td>{o.assigned_driver_id ?? "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </div>
   );

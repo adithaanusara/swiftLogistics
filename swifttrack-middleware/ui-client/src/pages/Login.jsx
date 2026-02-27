@@ -3,35 +3,86 @@ import { login } from "../api";
 import { saveSession } from "../auth";
 
 export default function Login({ onLoggedIn }) {
-  const [username, setU] = useState("client1");
-  const [password, setP] = useState("client123");
-  const [err, setErr] = useState("");
+  const [username, setUsername] = useState("client1");
+  const [password, setPassword] = useState("client123");
+  const [error, setError] = useState("");
 
-  async function submit() {
-    setErr("");
+  async function onSubmit(e) {
+    e.preventDefault();
+    setError("");
     try {
-      const s = await login(username, password);
-      const session = { token: s.token, role: s.role, username: s.username };
+      const res = await login(username, password);
+      const session = { token: res.token, role: res.role, username: res.username };
       saveSession(session);
       onLoggedIn(session);
-    } catch (e) {
-      setErr(String(e));
+    } catch (err) {
+      setError(typeof err === "string" ? err : err?.message || "Login failed");
     }
   }
 
   return (
-    <div className="container">
-      <h1>SwiftTrack Warehouse Portal</h1>
-      <div className="card" style={{maxWidth:420}}>
-        <h3>Login</h3>
-        <div className="small">Demo users: admin1/admin123, client1/client123, driver1/driver123</div>
-        <div style={{height:12}} />
-        <input className="input" value={username} onChange={e=>setU(e.target.value)} placeholder="username" />
-        <div style={{height:10}} />
-        <input className="input" value={password} onChange={e=>setP(e.target.value)} type="password" placeholder="password" />
-        <div style={{height:12}} />
-        <button className="btn" onClick={submit}>Sign in</button>
-        {err && <div style={{marginTop:12, color:"#ff8a8a"}}>{err}</div>}
+    <div className="loginPage">
+      <div className="loginCard">
+        <div className="loginBrand">
+          <div className="loginLogo" />
+          <div>
+            <h1>SwiftTrack WMS</h1>
+            <p>Warehouse & Logistics Control</p>
+          </div>
+        </div>
+
+        <div className="loginTitle">
+          <h2>Sign in</h2>
+          <p>Use your account to access the dashboard</p>
+        </div>
+
+        <form onSubmit={onSubmit} className="loginForm">
+          <label className="loginLabel">Username</label>
+          <input
+            className="loginInput"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="e.g. client1"
+            autoComplete="username"
+          />
+
+          <label className="loginLabel">Password</label>
+          <input
+            className="loginInput"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            type="password"
+            autoComplete="current-password"
+          />
+
+          <button className="loginBtn" type="submit">
+            Access Dashboard
+          </button>
+
+          {error && <div className="loginError">{error}</div>}
+        </form>
+
+        <div className="loginHint">
+          <div className="hintRow">
+            <span className="hintTag">Admin</span>
+            <span>admin1 / admin123</span>
+          </div>
+          <div className="hintRow">
+            <span className="hintTag">Client</span>
+            <span>client1 / client123</span>
+          </div>
+          <div className="hintRow">
+            <span className="hintTag">Driver</span>
+            <span>driver1 / driver123</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="loginFooter">
+        <span>API: localhost:8000</span>
+        <span>UI: localhost:5173</span>
+        <span>RabbitMQ: localhost:15672</span>
       </div>
     </div>
   );

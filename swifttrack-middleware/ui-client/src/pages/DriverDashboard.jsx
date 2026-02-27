@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import OrderTable from "../components/OrderTable";
 import { driverOrders, driverUpdateStatus } from "../api";
 
 export default function DriverDashboard({ session }) {
@@ -6,57 +7,44 @@ export default function DriverDashboard({ session }) {
   const [msg, setMsg] = useState("");
 
   async function load() {
-    const data = await driverOrders(session.token);
-    setOrders(data);
+    try {
+      const data = await driverOrders(session.token);
+      setOrders(data || []);
+    } catch (e) {
+      setMsg("Failed to load orders: " + String(e));
+    }
   }
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 2000);
-    return ()=>clearInterval(t);
+    const t = setInterval(load, 2000); // auto refresh
+    return () => clearInterval(t);
   }, []);
 
-  async function setStatus(orderId, status) {
+  async function onSetStatus(orderId, status) {
     setMsg("");
     try {
       await driverUpdateStatus(session.token, orderId, status);
-      setMsg(`Updated ${orderId.slice(0,8)}… -> ${status}`);
-      load();
+      setMsg(`Updated ${String(orderId).slice(0, 8)}... → ${status}`);
+      await load();
     } catch (e) {
-      setMsg("Error: " + String(e));
+      setMsg("Update failed: " + String(e));
     }
   }
 
   return (
-    <div className="container">
-      <h2>Driver Panel</h2>
-      {msg && <div className="card" style={{marginBottom:12}}>{msg}</div>}
-      <div className="card">
-        <h3>Assigned Orders <span className="badge">Auto-refresh 2s</span></h3>
-        <table>
-          <thead>
-            <tr><th>Order</th><th>Product</th><th>Address</th><th>Status</th><th>Actions</th></tr>
-          </thead>
-          <tbody>
-            {orders.map(o=>(
-              <tr key={o.id}>
-                <td>{o.id.slice(0,8)}…</td>
-                <td>{o.product_id}</td>
-                <td>{o.address}</td>
-                <td><span className="badge">{o.status}</span></td>
-                <td style={{display:"flex", gap:8, flexWrap:"wrap"}}>
-                  <button className="btn2" onClick={()=>setStatus(o.id, "PICKED_UP")}>Picked</button>
-                  <button className="btn2" onClick={()=>setStatus(o.id, "IN_TRANSIT")}>In Transit</button>
-                  <button className="btn" onClick={()=>setStatus(o.id, "DELIVERED")}>Delivered</button>
-                </td>
-              </tr>
-            ))}
-            {orders.length === 0 && (
-              <tr><td colSpan="5" className="small">No assigned orders yet.</td></tr>
-            )}
-          </tbody>
-        </table>
+    <div className="page">
+      <div className="page-title">
+        <h2>Driver Assignment Panel</h2>
+        <div style={{ opacity: 0.8 }}>Auto-refresh: 2s</div>
       </div>
+
+      {msg && <div style={{ marginBottom: 12, color: "#cbd5ff" }}>{msg}</div>}
+
+      {/* ✅ Per-order buttons inside table */}
+      <OrderTable orders={orders} onSetStatus={onSetStatus} />
+
+      {/* ❌ Remove old bottom global buttons if you have them */}
     </div>
   );
 }
